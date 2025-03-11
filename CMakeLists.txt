@@ -5,11 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
+
 include(FetchContent)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/external")
 
-add_executable(${PROJECT_NAME} "${CMAKE_CURRENT_LIST_DIR}/src/main.cpp"
+add_executable(${PROJECT_NAME} 
+    "${CMAKE_CURRENT_LIST_DIR}/src/main.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/src/HelloVulkanApplication.cpp"
 	"${CMAKE_CURRENT_LIST_DIR}/src/HelloVulkanApplication.hpp"
 )

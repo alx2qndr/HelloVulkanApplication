@@ -34,8 +34,8 @@
 const int WINDOW_WIDTH = 640;
 const int WINDOW_HEIGHT = 480;
 
-const std::string MODEL_PATH = "../assets/models/viking_room.obj";
-const std::string TEXTURE_PATH = "../assets/images/textures/viking_room.png";
+const std::string MODEL_PATH = "../assets/models/chunky_knight.obj";
+const std::string TEXTURE_PATH = "../assets/images/textures/chunky_knight.png";
 
 const std::string VERTEX_SHADER_PATH = "../assets/shaders/default.vert.spv";
 const std::string FRAGMENT_SHADER_PATH = "../assets/shaders/default.frag.spv";
@@ -91,8 +91,9 @@ struct SwapChainSupportDetails {
 
 struct Vertex {
     glm::vec3 pos;     
-    glm::vec3 color;  
+    glm::vec3 color;
     glm::vec2 texCoord;
+    glm::vec3 normal;
 
     static VkVertexInputBindingDescription getBindingDescription()
     {
@@ -104,9 +105,9 @@ struct Vertex {
         return bindingDescription;
     }
 
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions()
+    static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions()
     {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
+        std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions = {};
 
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
@@ -123,12 +124,17 @@ struct Vertex {
         attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
         attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
+        attributeDescriptions[3].binding = 0;
+        attributeDescriptions[3].location = 3;
+        attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[3].offset = offsetof(Vertex, normal);
+
         return attributeDescriptions;
     }
 
     bool operator==(const Vertex& other) const
     {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+        return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
     }
 };
 
@@ -137,7 +143,7 @@ namespace std {
     struct hash<Vertex> {
         size_t operator()(Vertex const& vertex) const
         {
-            return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+            return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1) ^ (hash<glm::vec3>()(vertex.normal) << 1);
         }
     };
 }
@@ -147,6 +153,8 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
+
+auto toSRGB = [](float linear) { return std::pow(linear, 2.2f); };
 
 class HelloVulkanApplication {
 public:
@@ -1185,11 +1193,32 @@ private:
             for (const auto& index : shape.mesh.indices) {
                 Vertex vertex = {};
 
-                vertex.pos = { attrib.vertices[3 * index.vertex_index + 0], attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2] };
+                vertex.pos = {
+                    attrib.vertices[3 * index.vertex_index + 0],
+                    attrib.vertices[3 * index.vertex_index + 1],
+                    attrib.vertices[3 * index.vertex_index + 2]
+                };
 
-                vertex.texCoord = { attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1] };
+                if (index.texcoord_index >= 0) {
+                    vertex.texCoord = {
+                        attrib.texcoords[2 * index.texcoord_index + 0],
+                        1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+                    };
+                }
+                else {
+                    vertex.texCoord = { 0.0f, 0.0f };
+                }
+
+                if (index.normal_index >= 0) {
+                    vertex.normal = {
+                        attrib.normals[3 * index.normal_index + 0],
+                        attrib.normals[3 * index.normal_index + 1],
+                        attrib.normals[3 * index.normal_index + 2]
+                    };
+                }
+                else {
+                    vertex.normal = { 0.0f, 1.0f, 0.0f };
+                }
 
                 vertex.color = { 1.0f, 1.0f, 1.0f };
 
@@ -1454,8 +1483,8 @@ private:
         renderPassInfo.renderArea.offset = { 0, 0 };
         renderPassInfo.renderArea.extent = swapchainExtent;
 
-        std::array<VkClearValue, 2> clearValues = {};
-        clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+        std::array<VkClearValue, 2> clearValues = {}; 
+        clearValues[0].color = { { toSRGB(0.1f), toSRGB(0.2f), toSRGB(0.3f), 1.0f } };
         clearValues[1].depthStencil = { 1.0f, 0 };
 
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -1525,9 +1554,9 @@ private:
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
         UniformBufferObject ubo = {};
-        ubo.model = glm::rotate(glm::mat4(1.0f), sin(time) * glm::radians(30.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(-8.f, 8.f, 8.f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.proj = glm::perspective(glm::radians(75.0f), swapchainExtent.width / (float)swapchainExtent.height, 0.1f, 1024.0f);
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(40.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(glm::vec3(-8.f, 0.f, 0.f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.proj = glm::perspective(glm::radians(50.0f), swapchainExtent.width / (float)swapchainExtent.height, 0.1f, 1024.0f);
         ubo.proj[1][1] *= -1;
 
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
