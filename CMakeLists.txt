@@ -13,8 +13,6 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/external")
 
 add_executable(${PROJECT_NAME} 
     "${CMAKE_CURRENT_LIST_DIR}/src/main.cpp"
-	"${CMAKE_CURRENT_LIST_DIR}/src/HelloVulkanApplication.cpp"
-	"${CMAKE_CURRENT_LIST_DIR}/src/HelloVulkanApplication.hpp"
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
